@@ -40,42 +40,111 @@ def transform(mode):
     https://pytorch.org/vision/stable/transforms.html
     You may specify different transforms for training and testing
     """
-    if mode == 'train':
-        return transforms.ToTensor()
+    my_transform = transforms.Compose([transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
+                                       transforms.Grayscale(num_output_channels=1),
+                                       transforms.ColorJitter(brightness=.5, hue=.3),
+                                       transforms.RandomHorizontalFlip(),
+                                       transforms.ToTensor()
+#                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#                                        transforms.Resize([64, 64]),
+#                                        transforms.RandomCrop(60),
+
+                                      ])
+
+    if mode == 'train':        
+#         return transforms.ToTensor()
+        return my_transform
     elif mode == 'test':
-        return transforms.ToTensor()
+#         return transforms.ToTensor()
+        return my_transform
 
 ############################################################################
 ######   Define the Module to process the images and produce labels   ######
 ############################################################################
-class Network(nn.Module):
+class ANN(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(ANN, self).__init__()
+        self.number_hidden_units = 500
+        self.flatten = nn.Flatten()  # take flatten method from super class
         
-    def forward(self, t):
-        pass
+        self.model = nn.Sequential(
+            nn.Linear(64*64, self.number_hidden_units),  # linear function, 28 by 28 inputs
+            nn.Tanh(),
+            nn.Linear(self.number_hidden_units, 14),  # 14 classes!
+#             nn.ReLU()
+#             ,
+            nn.LogSoftmax(-1)  # log softmax to scale the 10 output classes
+        )        
+    def forward(self, x):
+        x = self.flatten(x)  # flatten 2D input
+        output = self.model(x)  # x (the input), feeds into the network self.linear_relu_stack and the output is returned
+#         return torch.argmax(output, 1).long()
+        return output
 
 
-class loss(nn.Module):
-    """
-    Class for creating a custom loss function, if desired.
-    If you instead specify a standard loss function,
-    you can remove or comment out this class.
-    """
+class CNN(nn.Module):
     def __init__(self):
-        super(loss, self).__init__()
+        super(CNN, self).__init__()
+        self.model = nn.Sequential(
+            # need 14 outputs!
+            # conv layer 1
+            nn.BatchNorm2d(1),
+            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
+            nn.ELU(),
+            nn.MaxPool2d(2,2),
+            # conv layer 2
+            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
+            nn.MaxPool2d(2,2),
+            nn.ELU(),
 
-    def forward(self, output, target):
-        pass
+            # fully connected layer
+            nn.Flatten(),
+            nn.Linear(25088, 64),
+            nn.ELU(),
+            nn.Linear(64, 14),
+            
+            
+            
+#             nn.Dropout(p=0.5),  # dropout layer with dropout probability of 0.5
+#             nn.ReLU(),
+#             nn.Linear(64, 14),
+#             nn.ReLU(),
+#             nn.Softmax(-1)
+        )        
+    def forward(self, x):
+#         x = self.flatten(x)  # flatten 2D input
+        output = self.model(x)  # x (the input), feeds into the network self.linear_relu_stack and the output is returned
+#         return torch.argmax(output, 1).long()
+        return output
+
+# class loss(nn.Module):
+#     """
+#     Class for creating a custom loss function, if desired.
+#     If you instead specify a standard loss function,
+#     you can remove or comment out this class.
+#     """
+#     def __init__(self):
+#         super(loss, self).__init__()
+
+#     def forward(self, output, target):
+#         pass
 
 
-net = Network()
-lossFunc = loss()
+# net = ANN()
+net = CNN()
+# lossFunc = loss()
+lossFunc = torch.nn.CrossEntropyLoss()  # pp187 says use logits as outputs and CrossEntropyLoss()
+# lossFunc = torch.nn.CrossEntropyLoss
+# lossFunc = torch.nn.NLLLoss
+# lossFunc = torch.nn.functional.cross_entropy
+# lossFunc = torch.nn.functional.nll_loss  # according to pp 181 of deep learning with pytorch
 ############################################################################
 #######              Metaparameters and training options              ######
 ############################################################################
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 3
-optimiser = optim.Adam(net.parameters(), lr=0.001)
+epochs = 60
+# epochs = 10
+# optimiser = optim.Adam(net.parameters(), lr=0.001)
+optimiser = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, nesterov=True)
