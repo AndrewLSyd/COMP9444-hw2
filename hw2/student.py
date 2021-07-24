@@ -119,26 +119,26 @@ class CNN_best(nn.Module):
             nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
             nn.BatchNorm2d(128),
             nn.ELU(),
-#             nn.MaxPool2d(2,2),            
+            nn.MaxPool2d(2,2),            
             nn.Dropout(p=0.4),
             
             # conv layer 3
             nn.Conv2d(128, 256, kernel_size = 5, padding = 1),
             nn.BatchNorm2d(256),
             nn.ELU(),
-#             nn.MaxPool2d(2,2),            
-            nn.Dropout(p=0.4),
-            
-             # conv layer 4
-            nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(512),
-            nn.ELU(),
             nn.MaxPool2d(2,2),            
             nn.Dropout(p=0.4),
             
+#              # conv layer 4
+#             nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
+#             nn.BatchNorm2d(512),
+#             nn.ELU(),
+#             nn.MaxPool2d(2,2),            
+#             nn.Dropout(p=0.4),
+            
             # fully connected layer
             nn.Flatten(),
-            nn.Linear(73728, 64),
+            nn.Linear(9216, 64),
             nn.ELU(),
             nn.Linear(64, 14),
             
