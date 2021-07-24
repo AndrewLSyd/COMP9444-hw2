@@ -29,6 +29,13 @@ import torchvision.transforms as transforms
 Briefly describe how your program works, and explain any design and training
 decisions you made along the way.
 
+Every single model has been saved
+Tracking google sheets (see this public link) that documents all my experiments
+Phase 1: building a baseline model
+Phase 2: experimenting with transformers, holding model constant
+Phase 3: experimenting 
+
+
 """
 
 ############################################################################
@@ -40,23 +47,37 @@ def transform(mode):
     https://pytorch.org/vision/stable/transforms.html
     You may specify different transforms for training and testing
     """
-    my_transform = transforms.Compose([transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
-                                       transforms.Grayscale(num_output_channels=1),
-                                       transforms.ColorJitter(brightness=.5, hue=.3),
-                                       transforms.RandomHorizontalFlip(),
-                                       transforms.ToTensor()
-#                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-#                                        transforms.Resize([64, 64]),
-#                                        transforms.RandomCrop(60),
 
-                                      ])
 
     if mode == 'train':        
-#         return transforms.ToTensor()
-        return my_transform
+        my_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            
+            transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
+            
+            
+            transforms.ColorJitter(brightness=.5, hue=.3),
+            transforms.RandomHorizontalFlip(),
+
+    #                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    #                                        transforms.Resize([64, 64]),
+    #                                        transforms.RandomCrop(60),
+                                           transforms.ToTensor()
+                                          ])
+
     elif mode == 'test':
-#         return transforms.ToTensor()
-        return my_transform
+        my_transform = transforms.Compose([
+    #         transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
+            transforms.Grayscale(num_output_channels=1),
+#             transforms.ColorJitter(brightness=.5, hue=.3),
+#             transforms.RandomHorizontalFlip(),
+
+    #                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    #                                        transforms.Resize([64, 64]),
+    #                                        transforms.RandomCrop(60),
+                                           transforms.ToTensor()
+                                          ])
+    return my_transform
 
 ############################################################################
 ######   Define the Module to process the images and produce labels   ######
@@ -82,21 +103,77 @@ class ANN(nn.Module):
         return output
 
 
-class CNN(nn.Module):
+class CNN_best(nn.Module):
     def __init__(self):
-        super(CNN, self).__init__()
+        super(CNN_best, self).__init__()
         self.model = nn.Sequential(
             # need 14 outputs!
-            # conv layer 1
-            nn.BatchNorm2d(1),
+            # conv layer 1            
             nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(64),
             nn.ELU(),
             nn.MaxPool2d(2,2),
+            nn.Dropout(p=0.4),
+            
             # conv layer 2
             nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
-            nn.MaxPool2d(2,2),
+            nn.BatchNorm2d(128),
             nn.ELU(),
+#             nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+            # conv layer 3
+            nn.Conv2d(128, 256, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(256),
+            nn.ELU(),
+#             nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+             # conv layer 4
+            nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(512),
+            nn.ELU(),
+            nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+            # fully connected layer
+            nn.Flatten(),
+            nn.Linear(73728, 64),
+            nn.ELU(),
+            nn.Linear(64, 14),
+            
+            
+            
+#             nn.Dropout(p=0.5),  # dropout layer with dropout probability of 0.5
+#             nn.ReLU(),
+#             nn.Linear(64, 14),
+#             nn.ReLU(),
+#             nn.Softmax(-1)
+        )        
+    def forward(self, x):
+#         x = self.flatten(x)  # flatten 2D input
+        output = self.model(x)  # x (the input), feeds into the network self.linear_relu_stack and the output is returned
+#         return torch.argmax(output, 1).long()
+        return output
 
+
+class CNN_testing_transformers(nn.Module):
+    def __init__(self):
+        super(CNN_testing_transformers, self).__init__()
+        self.model = nn.Sequential(
+            # need 14 outputs!
+            # conv layer 1            
+            nn.BatchNorm2d(1),
+            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),            
+            nn.ELU(),
+            nn.MaxPool2d(2,2),            
+            
+            # conv layer 2
+            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),            
+            nn.MaxPool2d(2,2),            
+            nn.ELU(),                       
+          
+            
             # fully connected layer
             nn.Flatten(),
             nn.Linear(25088, 64),
@@ -131,7 +208,10 @@ class CNN(nn.Module):
 
 
 # net = ANN()
-net = CNN()
+net = CNN_best()
+
+# net = CNN_testing_transformers()
+
 # lossFunc = loss()
 lossFunc = torch.nn.CrossEntropyLoss()  # pp187 says use logits as outputs and CrossEntropyLoss()
 # lossFunc = torch.nn.CrossEntropyLoss
@@ -144,7 +224,7 @@ lossFunc = torch.nn.CrossEntropyLoss()  # pp187 says use logits as outputs and C
 dataset = "./data"
 train_val_split = 0.8
 batch_size = 256
-epochs = 60
+epochs = 2000
 # epochs = 10
 # optimiser = optim.Adam(net.parameters(), lr=0.001)
 optimiser = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, nesterov=True)

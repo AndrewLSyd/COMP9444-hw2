@@ -56,9 +56,9 @@ def test_network(net,testloader):
     
     return model_accuracy
     
-def train_network(net=student.net.to(device),
-                  criterion=student.lossFunc,
-                  optimiser=student.optimiser):
+def train_network(net,
+                  criterion,
+                  optimiser):
     print("Using device: {}"
           "\n".format(str(device)))
     ########################################################################
@@ -159,7 +159,8 @@ def train_network(net=student.net.to(device),
             
             # AL early stopping
             # if model does not improve by more than 1% after 10 epochs can it
-            if prev_valid_accuracy - valid_accuracy > 1:
+            if (prev_valid_accuracy - valid_accuracy > 2) and epoch >= 1500:
+                print("Earling stopping... prev_valid_accuracy", prev_valid_accuracy, "and valid_accuracy", valid_accuracy)
                 break
                 
             prev_valid_accuracy = valid_accuracy
@@ -177,13 +178,17 @@ def train_network(net=student.net.to(device),
     result = [
         now.strftime("%Y-%m-%d_%H%M"),  # training_start
         total_time,  # run_time
-        str(student.transform('train')),  # transform
+        total_time / student.epochs,  # time per epoch
+        str(student.transform('train')),  # transform train
+        str(student.transform('test')),  # transform test
         str(net),  # network_structure
         str(optimiser),  # optimiser
         str(criterion),  # loss_function
         student.train_val_split,  # train_val_split
         student.batch_size,
-        student.epochs
+        student.epochs,
+        max(accuracy[::2]),  # max training accuracy
+        max(accuracy[1::2]),  # max validation accuracy
     ]
     
     result += accuracy
