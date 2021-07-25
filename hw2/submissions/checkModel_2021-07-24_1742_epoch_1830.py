@@ -144,7 +144,7 @@ def transform(mode):
         my_transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             
-            transforms.AutoAugment(transforms.AutoAugmentPolicy.CIFAR10),
+            transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET),
             
             
             transforms.ColorJitter(brightness=.5, hue=.3),
@@ -348,54 +348,6 @@ class CNN_25(nn.Module):
         output = self.model(x)
         return output
 
-class CNN_26(nn.Module):
-    def __init__(self):
-        super(CNN_26, self).__init__()
-        self.model = nn.Sequential(
-            # need 14 outputs!
-            # conv layer 1            
-            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(64),
-            nn.ELU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.4),
-            
-            # conv layer 2
-            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ELU(),
-            nn.MaxPool2d(2,2),            
-            nn.Dropout(p=0.4),
-            
-            # conv layer 3
-            nn.Conv2d(128, 256, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(256),
-            nn.ELU(),
-            nn.MaxPool2d(2,2),            
-            nn.Dropout(p=0.4),
-            
-             # conv layer 4
-            nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(512),
-            nn.ELU(),
-            nn.Dropout(p=0.4),
-            
-             # conv layer 5
-            nn.Conv2d(512, 512, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(512),
-            nn.ELU(),
-            nn.Dropout(p=0.4),            
-            
-            # fully connected layer
-            nn.Flatten(),
-            nn.Linear(2048, 64),
-            nn.ELU(),
-            nn.Linear(64, 14),
-        )        
-    def forward(self, x):
-        output = self.model(x)
-        return output    
-    
 # class loss(nn.Module):
 #     """
 #     Class for creating a custom loss function, if desired.

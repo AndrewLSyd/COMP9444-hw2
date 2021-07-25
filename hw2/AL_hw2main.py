@@ -19,6 +19,10 @@ import time
 import gsheets
 import datetime
 
+import os
+import shutil
+
+
 # This class allows train/test split with different transforms
 class DatasetFromSubset(Dataset):
     def __init__(self, subset, transform=None):
@@ -100,6 +104,11 @@ def train_network(net,
     print(net)
     print(criterion)
     print(optimiser)
+    
+    source = 'student.py'
+    target = 'models/student_' + now.strftime("%Y-%m-%d_%H%M") + '.py'
+
+    shutil.copy(source, target)
     
     accuracy = []
     prev_valid_accuracy = 0
