@@ -21,7 +21,7 @@ import datetime
 
 import os
 import shutil
-
+import email_notifications
 
 # This class allows train/test split with different transforms
 class DatasetFromSubset(Dataset):
@@ -75,7 +75,8 @@ def train_network(net,
         data = torchvision.datasets.ImageFolder(root=student.dataset,
                             transform=student.transform('train'))
         trainloader = torch.utils.data.DataLoader(data,
-                            batch_size=student.batch_size, shuffle=True);
+                            batch_size=student.batch_size, shuffle=True
+                                                  , num_workers = 4, pin_memory=True);
     else:
         # Split the dataset into trainset and testset
         data = torchvision.datasets.ImageFolder(root=student.dataset)
@@ -89,9 +90,13 @@ def train_network(net,
             test_subset, transform=student.transform('test'))
 
         trainloader = torch.utils.data.DataLoader(trainset, 
-                            batch_size=student.batch_size, shuffle=False)
+                            batch_size=student.batch_size, shuffle=False
+                                                  , num_workers = 4, pin_memory=True
+                                                 )
         testloader = torch.utils.data.DataLoader(testset, 
-                            batch_size=student.batch_size, shuffle=False)
+                            batch_size=student.batch_size, shuffle=False
+                                                 , num_workers = 4, pin_memory=True
+                                                )
 
     ########################################################################
     #######                        Training                          #######
@@ -162,17 +167,18 @@ def train_network(net,
                 accuracy.append(valid_accuracy)
                 
                 
-                
-            torch.save(net.state_dict(), 'models/checkModel_' + now.strftime("%Y-%m-%d_%H%M") + '_epoch_' + str(epoch) + '.pth')
-            print("      Model saved to checkModel.pth")
+            if epoch > 1000 and epoch % 20 == 0:  # save model every 20 epochs after the 1000th
+                torch.save(net.state_dict(), 'models/checkModel_' + now.strftime("%Y-%m-%d_%H%M") + '_epoch_' + str(epoch) + '.pth')
+                print("      Model saved to checkModel.pth")
             
             # AL early stopping
             # if model does not improve by more than 1% after 10 epochs can it
-            if (prev_valid_accuracy - valid_accuracy > 2) and epoch >= 1500:
+            if student.train_val_split < 1 and (prev_valid_accuracy - valid_accuracy > 2) and epoch >= 1500:
                 print("Earling stopping... prev_valid_accuracy", prev_valid_accuracy, "and valid_accuracy", valid_accuracy)
                 break
                 
-            prev_valid_accuracy = valid_accuracy
+            if student.train_val_split < 1:
+                prev_valid_accuracy = valid_accuracy
 
     if student.train_val_split < 1:
         test_network(net,testloader)    
@@ -203,12 +209,17 @@ def train_network(net,
     result += accuracy
     
     gsheets.write_to_gsheets(result)
-
+    
+    email_notifications.send_email_notification(email_recipient='andrew.ondu.lau@gmail.com',
+                            subject="COMP9444 hw2 training done", message_body=str(result), fpath_image=None)
+    email_notifications.send_email_notification(email_recipient='alau3@woolworths.com.au',
+                            subject="COMP9444 hw2 training done", message_body=str(result), fpath_image=None)
     
 def main():
     train_network(net=student.net.to(device),
                   criterion = student.lossFunc,
-                  optimiser = student.optimiser)
+                  optimiser = student.optimiser)    
+    
     
 if __name__ == '__main__':
     main()

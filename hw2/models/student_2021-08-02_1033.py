@@ -35,55 +35,47 @@ CNNs, with their automatic image feature generation and efficient parameter shar
 
 Given all the possible architectures (width, depth, max pooling, batch normalisation, skip connections, …), activation functions and optimisers and hyper parameters, clearly, the size of the search space make a brute force, purely random search unfeasible.
 
-Thus, being methodological was paramount; the transformations, architecture and training configurations of all models were programmatically saved to a google spreadsheet (see this public gsheets https://docs.google.com/spreadsheets/d/1u9UyFmrOLXEPozd-dPBhQxp_Lt-UcxKKHXtPyDW9nX4/edit?usp=sharing) to keep track of experiments performed. Given the search space, it’s also very important to tune and experiment in order of importance (e.g., tuning the learning rate before finding a decent architecture or set of image transforms is putting the cart before the horse). My order of experimentation was as follows: find a baseline model, experiment with data transforms, experiment with layers (depth, width, max pooling, batch normalisation), experiment with activation functions and then experiment with optimisers and their parameters. Finally, after locking everything in I retrained on 95% of the training data (using the 5% to check if the model had converged). Ultimately, what the deciding factor for model architecture was its performance on the validation (and test) data. Looking at this google sheet, you can see that over time my validation score improves, but I quickly hit a point of diminishing returns and struggle to get validation accuracy much greater than my final submission score of 96-7%. To an extent, this method of stepwise experimentation falsely assumes independence of each step I am tuning, but given the vast size of the search space, it is a reasonable concession.
+Thus, being methodological was paramount; the transformations, architecture and training configurations of all models were programmatically saved to a google spreadsheet (see this public link) to keep track of experiments performed. Given the search space, it’s also very important to tune and experiment in order of importance (e.g., tuning the learning rate before finding a decent architecture or set of image transforms is putting the cart before the horse). My order of experimentation was as follows: find a baseline model, experiment with data transforms, experiment with layers (depth, width, max pooling, batch normalisation), experiment with activation functions and then experiment with optimisers and their parameters. Finally, after locking everything in I retrained on the full training data. Ultimately, what the deciding factor for model architecture was its performance on the validation (and test) data. Looking at this google sheet, you can see that over time my validation score improves, but I quickly hit a point of diminishing returns and struggle to get validation accuracy much greater than 91%. To an extent, this method of stepwise experimentation falsely assumes independence of each step I am tuning, but given the vast size of the search space, it is a reasonable concession.
 
-I saved every 10 epochs of all models and generally trained them for 3000 epochs towards the end of my experimentation. This allowed me to train a model past convergence into overfit territory and subsequently retrieve an epoch that had just converged (according to the validation data). I had access to a non-preemptible virtual machine on Google Cloud Platform with a P100 GPU running 24/7 that could fit two models in parallel comfortably. I also set up a clean repo/bash setup script that allowed me to easily spin up an arbitrary number of GCP virtual machines to increase parallel search capacity, but around this stage I was already achieving a final submission score of 90-91% so was deemed unnecessary.
+I saved every 10 epochs of all models and generally trained them for 3000 epochs towards the end of my experimentation. This allowed me to train a model past convergence into overfit territory and subsequently retrieve an epoch that had just converged (according to the validation data). I had access to a non-preemptible virtual machine on Google Cloud Platform with a P100 GPU running 24/7 that could fit two models in parallel comfortably. I also set up a clean repo/bash setup script that allowed me to easily spin up an arbitrary number of GCP virtual machines to increase parallel search capacity, but around this stage I was already achieving 90-91% test accuracy so was deemed unnecessary.
 
 Start with a reasonable, baseline model
-I started with a baseline CNN model to build on a tweak by taking inspiration from AlexNet as well as model structures used in image recognition tasks like the MNIST, Fashion MNIST as well as CIFAR-10. I also looked to recommendations from [1, 2, 4] to guide my “default” baseline model choice.
+I started with a baseline CNN model to build on a tweak by taking inspiration from existing well-known architectures like, X, Y, Z as well as model structures used in image recognition tasks like the MNIST, Fashion MNIST as well as CIFAR-10. I also looked to recommendations from texts to guide my “default” baseline model choice.
 
-Depth (numbers of convolutional layers) - I tested various depths, from 1 to 6. 5 Seemed to work best for me. A kernel size and stride of 5x5 and 1 were used for all convolutional layers (same as AlexNet’s first CNN layer).
+Depth (numbers of convolutional layers) - I tested various depths, from 1 to 6. 4-5 Seemed to work best for me. A kernel size and stride of 5x5 and 1 were used for all convolutional layers (same as AlexNet’s first CNN layer).
 
-Width – taking inspiration from AlexNet and a comment Professor Blair made in one of the lectures, initially, a “funnel” shape was used with the first layer having a width of 64 before expanding to up to 512 for deeper layers. Later on, I discovered success by keeping the number of filters mostly constant and testing different numbers of filters.
+Width – taking inspiration from AlexNet and a comment Professor Blair made in one of the lectures, a “funnel” shape was used with the first layer having a width of 64 before expanding to up to 512 for deeper layers. In the interest of time, I did not experiment with too many other configurations, but given more time, this would be worth experimenting with. 
+Fully connected network - I experimented with 1-3 hidden layers. 1 and 2 layers seemed to give similar performance, so I proceeded with just 1 hidden layer. Each layer had 2048 nodes (the same as AlexNet’s FCN).
 
-Fully connected network - I experimented with 1-3 hidden layers. 2 layers seemed to give similar performance, so I proceeded with just 1 hidden layer.
-
-Max pooling - my initial experimentation had max pooling layers for each layer but cause too much information to be lost from subsampling. Taking inspiration from AlexNet, my final network had a max pooling layer at the beginning and somewhere towards the end of the network. I found that max pooling layers helped somewhat in overfitting.
+Max pooling - my initial experimentation had max pooling layers for each layer. Attempting to remove max pooling layers in the middle convolutional layers, like in AlexNet, led to inferior performance so all max pooling layers were kept. I also found that max pooling layers helped somewhat in overfitting.
 
 Batch normalisation - was recommended by [1], [2]. At a cost of only a few parameters per layer, batch normalisation can help ameliorate vanishing/exploding gradients. Batch normalisation - was used at every layer to speed up gradient descent to discourage vanishing and exploding gradients by keeping inputs and outputs to each layer inside a healthy range and speed up the training process.
-Had I more time, I would have investigated skip connections/Resnet as well as taking inspiration from other well-known CNNs (e.g., ResNet, VCG).
 
+Had I more time, I would have investigated skip connections/Resnet as well as taking inspiration from other well-known CNNs (e.g., ResNet, VCG)
 ********************************************************************************
 * (b) choice of loss function and optimiser
 ********************************************************************************
-Loss function – this is a multiclass classification problem. The two obvious candidates are to either output nn.LogSoftmax and use nn.NLLLoss or to output logits and use nn.CrossEntropyLoss. According to [4, pp187] they are equivalent so we have gone with outputting logits and using nn.CrossEntropyLoss.
-Optimiser - based on the recommendation of Geron [1] and He (of He initialisation fame) [3] I initially used Nesterov accelerated gradient descent. After my model architecture was starting to finalise, I experimented with the popular Adam and it seemed to perform a bit better (perhaps it’s less sensitive to hyperparameters) so I proceeded with Adam. At this stage, my model was performing at 96-97% accuracy on the final submission, so I only bothered testing another learning rate for Adam (which performed poorly).
-
+Loss function – this is a multiclass classification problem. The two obvious candidates are to either output nn.LogSoftmax and use nn.NLLLoss or to output logits and use nn.CrossEntropyLoss. According to [4, pp187] they are equivalent so we have gone with outputting logics and using nn.CrossEntropyLoss.
+Optimiser - based on the recommendation of Geron [1] and He (of He initialisation fame) [3] I used Nesterov accelerated gradient descent. After my model architecture was starting to finalise, I experimented with the popular Adam and it showed similar results, so I kept Nesterov for the final model.
 ********************************************************************************
 * (c) choice of image transformations
 ********************************************************************************
 One of the best ways to improve model generalisability and performance is to feed it more data [3]. Unfortunately, getting more clean labelled data is often difficult. This is where data augmentation comes in – by randomly transforming the data in such a way that a human would still recognise it as the labelled object we are generating additional pseudo-data for our model [4, pp346-7].
-
 Greyscale transform – given the data is inherently greyscale, removing the 2 redundant channels was a no-brainer.
-
 Random horizontal flip – flipping images along the y-axis creates a realistic pseudo-image that in most cases, humans would not realise was flipped. Also, a no-brainer. A flip probability of 50% was used, as proposed by [3]
-
 Colour jitter – was used to randomly alter the brightness and hue of the image as proposed by [3]
 Auto augment policy – it was found that in addition to the above transforms, using an auto augment policy that randomly transforms images according to a well-known policy helped model performance. The incredibly well-known Image Net transforms as well as CIFAR-10’s transforms were tested. Image net seemed to perform marginally better and was thus used. It was observed that using the image net auto augment policy was so effective at creating pseudo data that even in later epochs (2500+), the network struggled to “overfit” and achieve even training accuracies more than 3-4% above validation data. 
-
 ********************************************************************************
 * (d) tuning of meta parameters
 ********************************************************************************
 Optimisers and hyper parameters
 I experimented with batch sizes of 256, 512 and 1024 (which didn’t fit into my GPU’s RAM). 256 rather than 512 would possibly help speed up training with quicker auto grad calculations, and some additional randomness to push it out of local optima. In the end, it didn’t appear to make a material difference, so I stuck with 256. Powers of two were experimented with, as X. 
 Learning rate and momentum – were kept at default values. Had I more time I would have run a quick grid search across these values.
-
-Activation function – whilst the ever-popular ReLU provides us with non-linearity, saturation for only small values (and hence fewer vanishing gradients) and quick computation [1], it suffers from the possibility of “dead neurons” – neurons with a negative input and gradients stuck at zero. For much of my experimentation, ELU was used an alternative that also provides non-linearity and saturation in one direction but gives the opportunity for “dead neurons” to revive and is recommended over ReLU by Geron [1] and Clevert et al. [5]. Interestingly, experimentation towards the end showed ReLU outperforming ELU slightly, so my final model uses ReLU rather than ELU.
-
+Activation function – whilst the ever-popular ReLU provides us with non-linearity, saturation for only small values (and hence fewer vanishing gradients) and quick computation [1], it suffers from the possibility of “dead neurons” – neurons with a negative input and gradients stuck at zero. ELU was used an alternative that also provides non-linearity and saturation in one direction but gives the opportunity for “dead neurons” to revive and is recommended over ReLU by Geron [1] and Clevert et al. [5]. Experimentation towards the end showed the ReLU and ELU did not change performance by that much.
 ********************************************************************************
 * (e) use of validation set, and any other steps taken to improve generalization and avoid overfitting
 ********************************************************************************
-Validation data – was used with a typical training split of 80% to estimate final test set error. The ratio of training to validation error was also used as a measure of level of overfit (e.g., a model with 95% training accuracy and 75% validation accuracy shows signs of overfitting) and helped guide training decisions like whether to implement more regularisation techniques and how many more epochs to train for. Models were allowed to fit pasted optimal convergence into overfit territory, before retrieving an earlier model that had “just converged” – like early stopping, except I allowed the model to far overfit, in case early stopping occurred at a local optimum.
+Validation data – was used with a typical training split of 80% to estimate final test set error. The ratio of training to validation error was also used as a measure of level of overfit (e.g., a model with 95% training accuracy and 75% validation accuracy shows signs of overfitting) and helped guide training decisions like whether to implement more regularisation techniques and how many more epochs to train for. Models were allowed to fit pasted optimal convergence into overfit territory, before retrieving an earlier model that had “just converged” – like early stopping, except I allowed the model to far overfit, in case the early stopping occurred at a local optimum.
 Max pooling – reduces the risk of overfitting by subsampling and reducing the number of parameters [1, page 371].
 Hinton’s dropout layers – were applied at each convolutional layer to randomly “turn off” neurons during training, to reduce co-dependence between neurons and making the network less sensitive to reliance on a few input neurons [1, pp 312].
 Heavy use of transforms – the auto transforms based on image net provided the model with huge increase in amount of training data. It was observed that with the random transforms, the network struggled to overfit over, event with 3000 epochs (e.g., the network’s training accuracy struggled to climb much higher than 4% over the validation accuracy) as the network was fed a “different” data set at each epoch, making it difficult to overfit to any particular set of images.
@@ -93,6 +85,7 @@ References
 [3]	He et al., Bag of Tricks for Image Classification with Convolutional Neural Networks. 2019.
 [4]	E Stevens, L Antiga, T Viehmann, Deep Learning with PyTorch. 2020
 [5]	D Clevert, T Unterthiner, S Hochreiter, Fast and Accurate Deep Network Learning by Exponential Linear Units (ELUs)
+
 
 ********************************************************************************
 * setup_pytorch.sh
@@ -120,6 +113,8 @@ def transform(mode):
     https://pytorch.org/vision/stable/transforms.html
     You may specify different transforms for training and testing
     """
+
+
     if mode == 'train':        
         my_transform = transforms.Compose([
             # convert to greyscale, remove redundant channels
@@ -144,6 +139,77 @@ def transform(mode):
 ############################################################################
 ######   Define the Module to process the images and produce labels   ######
 ############################################################################
+class ANN(nn.Module):
+    def __init__(self):
+        super(ANN, self).__init__()
+        self.number_hidden_units = 500
+        self.flatten = nn.Flatten()  # take flatten method from super class
+        
+        self.model = nn.Sequential(
+            nn.Linear(64*64, self.number_hidden_units),  # linear function, 28 by 28 inputs
+            nn.Tanh(),
+            nn.Linear(self.number_hidden_units, 14),  # 14 classes!
+#             nn.ReLU()
+#             ,
+            nn.LogSoftmax(-1)  # log softmax to scale the 10 output classes
+        )        
+    def forward(self, x):
+        x = self.flatten(x)  # flatten 2D input
+        output = self.model(x)  # x (the input), feeds into the network self.linear_relu_stack and the output is returned
+#         return torch.argmax(output, 1).long()
+        return output
+
+
+class CNN_best(nn.Module):
+    def __init__(self):
+        super(CNN_best, self).__init__()
+        self.model = nn.Sequential(
+            # need 14 outputs!
+            # conv layer 1            
+            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(64),
+            nn.ELU(),
+            nn.MaxPool2d(2,2),
+            nn.Dropout(p=0.4),
+            
+            # conv layer 2
+            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(128),
+            nn.ELU(),
+            nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+            # conv layer 3
+            nn.Conv2d(128, 256, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(256),
+            nn.ELU(),
+            nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+             # conv layer 4
+            nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(512),
+            nn.ELU(),
+#             nn.MaxPool2d(2,2),            
+            nn.Dropout(p=0.4),
+            
+             # conv layer 5
+            nn.Conv2d(512, 512, kernel_size = 5, padding = 1),
+            nn.BatchNorm2d(512),
+            nn.ELU(),
+            nn.Dropout(p=0.4),            
+            
+            # fully connected layer
+            nn.Flatten(),
+            nn.Linear(2048, 64),
+            nn.ELU(),
+            nn.Linear(64, 14),
+
+        )        
+    def forward(self, x):
+        output = self.model(x)
+        return output
+
 class CNN_23(nn.Module):
     def __init__(self):
         super(CNN_23, self).__init__()
@@ -358,15 +424,11 @@ class CNN_27(nn.Module):
 class CNN_28(nn.Module):
     """
     CNN 23, but with relu
-    5 layer CNN, each layer has
-        - batch normalisation
-        - max pooling
-        - dropout
-    2 layer FCN
     """
     def __init__(self):
         super(CNN_28, self).__init__()
         self.model = nn.Sequential(
+            # need 14 outputs!
             # conv layer 1            
             nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
             nn.BatchNorm2d(64),
@@ -409,164 +471,8 @@ class CNN_28(nn.Module):
     def forward(self, x):
         output = self.model(x)
         return output    
-
-class CNN_29(nn.Module):
-    """
-    Like CNN 28, but with dropout p=0.5
-    """
-    def __init__(self):
-        super(CNN_29, self).__init__()
-        self.model = nn.Sequential(
-            # need 14 outputs!
-            # conv layer 1            
-            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.5),
-            
-            # conv layer 2
-            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),            
-            nn.Dropout(p=0.5),
-            
-            # conv layer 3
-            nn.Conv2d(128, 256, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),            
-            nn.Dropout(p=0.5),
-            
-             # conv layer 4
-            nn.Conv2d(256, 512, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            
-             # conv layer 5
-            nn.Conv2d(512, 512, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),            
-            
-            # fully connected layer
-            nn.Flatten(),
-            nn.Linear(2048, 64),
-            nn.ReLU(),
-            nn.Linear(64, 14),
-        )        
-    def forward(self, x):
-        output = self.model(x)
-        return output    
-
-class CNN_30(nn.Module):
-    """
-    Like CNN 29, but moved max pooling layer to the end and removed a max pooling layer
-    """
-    def __init__(self):
-        super(CNN_30, self).__init__()
-        self.model = nn.Sequential(
-            # need 14 outputs!
-            # conv layer 1            
-            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.5),
-            
-            # conv layer 2
-            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            
-            # conv layer 3
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),     
-            nn.Dropout(p=0.5),
-            
-             # conv layer 4
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.5),
-            
-             # conv layer 5
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),            
-            
-            # fully connected layer
-            nn.Flatten(),
-            nn.Linear(12800, 64),
-            nn.ReLU(),
-            nn.Linear(64, 14),
-        )        
-    def forward(self, x):
-        output = self.model(x)
-        return output    
-
-class CNN_31(nn.Module):
-    """
-    Like CNN 30, but deeper
-    """
-    def __init__(self):
-        super(CNN_31, self).__init__()
-        self.model = nn.Sequential(
-            # conv layer 1            
-            nn.Conv2d(1, 64, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.5),
-            
-            # conv layer 2
-            nn.Conv2d(64, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            
-            # conv layer 3
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),     
-            nn.Dropout(p=0.5),
-            
-             # conv layer 4
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-            nn.Dropout(p=0.5),
-            
-             # conv layer 5
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            
-              # conv layer 6
-            nn.Conv2d(128, 128, kernel_size = 5, padding = 1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            
-            # fully connected layer
-            nn.Flatten(),
-            nn.Linear(8192, 64),
-            nn.ReLU(),
-            nn.Linear(64, 14),
-        )        
-    def forward(self, x):
-        output = self.model(x)
-        return output    
-
-net = CNN_30()
+    
+net = CNN_27()
 
 # logits and cross entropy loss used for multi-class classification
 lossFunc = torch.nn.CrossEntropyLoss()  # pp187 of deep learning with pytorchsays use logits as outputs and CrossEntropyLoss()
@@ -575,12 +481,12 @@ lossFunc = torch.nn.CrossEntropyLoss()  # pp187 of deep learning with pytorchsay
 #######              Metaparameters and training options              ######
 ############################################################################
 dataset = "./data"
-train_val_split = .95
+train_val_split = .8
 batch_size = 256
 # let it run past the point of convergence to overfit territory
 epochs = 3000
-optimiser = optim.Adam(net.parameters(), lr=0.001)
-# optimiser = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, nesterov=True)
+# optimiser = optim.Adam(net.parameters(), lr=0.001)
+optimiser = optim.SGD(net.parameters(), lr=0.01, momentum=0.9, nesterov=True)
 
 """
 LIST OF PACKAGES USED TO REPLICATE RESULTS
