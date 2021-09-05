@@ -9,6 +9,7 @@ conda install -y numpy matplotlib pandas scikit-learn
 conda install -c conda-forge seaborn pandas-gbq fsspec gcsfs 'google-cloud-bigquery[bqstorage,pandas]' google-api-python-client google-auth-httplib2 google-auth-oauthlib google-auth-oauthlib -y
 
 pip install gpustat
+pip install progressbar2
 # conda install tensorflow-gpu
 
 # check if pytorch can find GPU
