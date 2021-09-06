@@ -1,0 +1,1 @@
+sudo docker run --mount src="/home/alau3/COMP9444-hw2/docker/test_new_copy",target=/test_new,type=bind simpsons
